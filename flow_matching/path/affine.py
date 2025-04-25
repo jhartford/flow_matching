@@ -307,3 +307,11 @@ class CondOTProbPath(AffineProbPath):
 
     def __init__(self):
         self.scheduler = CondOTScheduler()
+
+class CondSDEProbPath(SchrodingerProbPath):
+    r"""The ``CondSDEProbPath`` class represents a conditional stochastic differential equation probability path.
+    """
+
+    def __init__(self, sigma: float = 0.1):
+        self.scheduler = CondOTScheduler()
+        self.sigma = sigma

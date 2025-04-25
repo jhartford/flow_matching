@@ -4,7 +4,7 @@
 # This source code is licensed under the CC-by-NC license found in the
 # LICENSE file in the root directory of this source tree.
 
-from .affine import AffineProbPath, SchrodingerProbPath, CondOTProbPath
+from .affine import AffineProbPath, SchrodingerProbPath, CondOTProbPath, CondSDEProbPath
 from .geodesic import GeodesicProbPath
 from .mixture import MixtureDiscreteProbPath
 from .path import ProbPath
@@ -16,6 +16,7 @@ __all__ = [
     "AffineProbPath",
     "SchrodingerProbPath",
     "CondOTProbPath",
+    "CondSDEProbPath",
     "MixtureDiscreteProbPath",
     "GeodesicProbPath",
     "PathSample",
