@@ -6,7 +6,7 @@
 
 from .categorical_sampler import categorical
 from .model_wrapper import ModelWrapper
-from .utils import expand_tensor_like, gradient, unsqueeze_to_match
+from .utils import expand_tensor_like, gradient, randn_like, unsqueeze_to_match
 
 __all__ = [
     "unsqueeze_to_match",

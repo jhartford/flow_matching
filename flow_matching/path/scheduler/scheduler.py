@@ -183,6 +183,24 @@ class LinearVPScheduler(Scheduler):
         return torch.sqrt(snr**2 / (1 + snr**2))
 
 
+class BrownianBridgeScheduler(Scheduler):
+    """Brownian Bridge Scheduler.
+    
+    Ref: https://arxiv.org/abs/2302.00482
+    """
+
+    def __call__(self, t: Tensor) -> SchedulerOutput:
+        return SchedulerOutput(
+            alpha_t=t,
+            sigma_t=torch.sqrt(t * (1 - t)), # Eq. 20
+            d_alpha_t=torch.ones_like(t),
+            d_sigma_t=(1 - 2*t) / (2*(t * (1 - t)) + 1e-8), # Eq. 21
+        )
+
+    def snr_inverse(self, snr: Tensor) -> Tensor:
+        return torch.sqrt(snr**2 / (1 + snr**2))
+
+
 class CosineScheduler(Scheduler):
     """Cosine Scheduler."""
 

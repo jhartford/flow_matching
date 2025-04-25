@@ -1,0 +1,24 @@
+# Note: Versions for packages originally from Conda channels (pytorch, numpy, etc.)
+# were not specified in environment.yml and are omitted here.
+# Pip will install the latest available versions from PyPI.
+# For PyTorch with specific CUDA support, refer to the official PyTorch installation guide:
+# https://pytorch.org/get-started/locally/
+
+# From Conda dependencies:
+torch
+matplotlib
+jupyter
+numpy
+tqdm
+
+# From pip dependencies:
+pre-commit
+black==22.6.0
+usort==1.0.4
+ufmt==2.3.0
+flake8==7.0.0
+ipykernel
+torchdiffeq
+scikit-learn
+pydoclint
+coverage

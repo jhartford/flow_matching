@@ -7,9 +7,9 @@
 from torch import Tensor
 
 from flow_matching.path.path import ProbPath
-from flow_matching.path.path_sample import PathSample
+from flow_matching.path.path_sample import PathSample, StochasticPathSample
 from flow_matching.path.scheduler.scheduler import CondOTScheduler, Scheduler
-from flow_matching.utils import expand_tensor_like
+from flow_matching.utils import expand_tensor_like, randn_like
 
 
 class AffineProbPath(ProbPath):
@@ -242,6 +242,55 @@ class AffineProbPath(ProbPath):
         b_t = -alpha_t / sigma_t
 
         return a_t * x_t + b_t * x_1
+
+
+class SchrodingerProbPath(ProbPath):
+    r"""The ``SchrodingerProbPath`` class represents a specific type of probability path where the transformation between distributions is Schrodinger.
+    """
+
+    def __init__(self, scheduler: Scheduler, sigma: float = 0.1):
+        self.scheduler = scheduler
+        self.sigma = sigma
+
+    def sample(self, x_0: Tensor, x_1: Tensor, t: Tensor) -> StochasticPathSample:
+        r"""Sample from the affine probability path:
+
+        | given :math:`(X_0,X_1) \sim \pi(X_0,X_1)` and a scheduler :math:`(\alpha_t,\sigma_t)`.
+        | return :math:`X_0, X_1, X_t = \alpha_t X_1 + \sigma_t X_0`, and the conditional velocity at :math:`X_t, \dot{X}_t = \dot{\alpha}_t X_1 + \dot{\sigma}_t X_0`.
+
+        Args:
+            x_0 (Tensor): source data point, shape (batch_size, ...).
+            x_1 (Tensor): target data point, shape (batch_size, ...).
+            t (Tensor): times in [0,1], shape (batch_size).
+
+        Returns:
+            PathSample: a conditional sample at :math:`X_t \sim p_t`.
+        """
+        self.assert_sample_shape(x_0=x_0, x_1=x_1, t=t)
+
+        scheduler_output = self.scheduler(t)
+
+        alpha_t = expand_tensor_like(
+            input_tensor=scheduler_output.alpha_t, expand_to=x_1
+        )
+        sigma_t = expand_tensor_like(
+            input_tensor=scheduler_output.sigma_t, expand_to=x_1
+        )
+        d_alpha_t = expand_tensor_like(
+            input_tensor=scheduler_output.d_alpha_t, expand_to=x_1
+        )
+        d_sigma_t = expand_tensor_like(
+            input_tensor=scheduler_output.d_sigma_t, expand_to=x_1
+        )
+
+        # construct xt ~ p_t(x|x1).
+        t_ = expand_tensor_like(t, expand_to=x_1)
+        mu_t = (1 - t_) * x_0 + t_ * x_1
+        eps = randn_like(x_0)
+        x_t = mu_t + self.sigma * sigma_t * eps
+        dx_t = d_sigma_t * (x_t - mu_t) + x_1 - x_0
+        lambda_t = 2 * sigma_t / (self.sigma + 1e-8)
+        return StochasticPathSample(x_t=x_t, eps=eps, dx_t=dx_t, x_1=x_1, x_0=x_0, t=t, lambda_t=lambda_t)
 
 
 class CondOTProbPath(AffineProbPath):

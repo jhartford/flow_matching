@@ -8,7 +8,9 @@ from abc import ABC, abstractmethod
 
 from torch import Tensor
 
-from flow_matching.path.path_sample import PathSample
+from flow_matching.path.path_sample import PathSample, StochasticPathSample
+
+from typing import Union
 
 
 class ProbPath(ABC):
@@ -37,7 +39,7 @@ class ProbPath(ABC):
     """
 
     @abstractmethod
-    def sample(self, x_0: Tensor, x_1: Tensor, t: Tensor) -> PathSample:
+    def sample(self, x_0: Tensor, x_1: Tensor, t: Tensor) -> Union[PathSample, StochasticPathSample]:
         r"""Sample from an abstract probability path:
 
         | given :math:`(X_0,X_1) \sim \pi(X_0,X_1)`.
@@ -59,3 +61,4 @@ class ProbPath(ABC):
         assert (
             t.shape[0] == x_0.shape[0] == x_1.shape[0]
         ), f"Time t dimension must match the batch size [{x_1.shape[0]}]. Got {t.shape}"
+

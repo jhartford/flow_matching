@@ -88,3 +88,9 @@ def gradient(
         output, x, grad_outputs=grad_outputs, create_graph=create_graph
     )[0]
     return grad
+
+def randn_like(x: Tensor) -> Tensor:
+    """
+    Return a tensor of the same shape as x, filled with random numbers from a normal distribution.
+    """
+    return torch.randn_like(x)
