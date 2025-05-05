@@ -4,6 +4,7 @@ import torch
 from torch import Tensor
 from typing import Union, Callable, Sequence, Tuple, Optional
 from flow_matching.utils import ModelWrapper
+from math import prod
 
 class SDESolver(Solver):
     noise_type = "diagonal"
@@ -24,49 +25,36 @@ class SDESolver(Solver):
         self.reverse = reverse
         self.sigma = sigma
         self._input_shape = None
+        self._model_inputs = None
 
     # Drift
     def f(self, t, x):
-        inputs = self._unflatten_input(x)
-        x = inputs['x']
-        del inputs['x']
+        inputs = self._model_inputs
+        x = x.view(*self._input_shape)
         if self.combined_model is not None:
+            # Handle extra inputs without crashing if the model doesn't take them
             if len(inputs) > 0:
-                velocity, score = torch.chunk(self.combined_model(x, t, **inputs), 2, dim=1)
+                velocity, score = torch.chunk(self.combined_model(t, x, **inputs), 2, dim=1)
             else:
-                velocity, score = torch.chunk(self.combined_model(x, t), 2, dim=1)
+                velocity, score = torch.chunk(self.combined_model(t, x), 2, dim=1)
         else:
             if len(inputs) > 0:
-                velocity = self.velocity_model(x, t, **inputs)
-                score = self.score_model(x, t, **inputs)
+                velocity = self.velocity_model(t,x, **inputs)
+                score = self.score_model(t, x, **inputs)
             else:
-                velocity = self.velocity_model(x, t)
-                score = self.score_model(x, t)
+                velocity = self.velocity_model(t, x)
+                score = self.score_model(t, x)
         if self.reverse:
             t = 1 - t
-            return -velocity + score
-
+            output = (-velocity + score).view(x.shape[0], -1)
+            return output
         else:
-            return velocity + score
-
+            output = (velocity + score).view(x.shape[0], -1)
+            return output
 
     # Diffusion
     def g(self, t, x):
-        inputs = self._unflatten_input(x)
-        x = inputs['x']
-        del inputs['x']
         return torch.ones_like(x) * self.sigma
-
-    def _flatten_input(self, x: Tensor, **model_inputs):
-        model_inputs['x'] = x
-        model_inputs = {k: v.to(x.device) for k, v in model_inputs.items() if isinstance(v, Tensor)}
-        self._input_shape = {k: tuple(v.shape[1:]) for k, v in model_inputs.items()}
-        batch_size = x.shape[0]
-        return torch.cat([v.view(batch_size, -1) for v in model_inputs.values()], dim=-1)
-    
-    def _unflatten_input(self, x: Tensor):
-        tensors = torch.split(x, [sum(shape) for shape in self._input_shape.values()], dim=-1)
-        return {k: v.view(-1, *self._input_shape[k]) for k, v in zip(self._input_shape.keys(), tensors)}
 
     def sample(
             self,
@@ -80,21 +68,13 @@ class SDESolver(Solver):
             **model_inputs
             ) -> Union[Tensor, Sequence[Tensor]]:
         self.sde_type = method
-        self._input_shape = tuple(x_init.shape[1:])
-        batch_size = x_init.shape[0]
+        self._input_shape = x_init.shape
 
         with torch.no_grad():
-            x_init = self._flatten_input(x_init, **model_inputs)
-            sol = torchsde.sdeint(self, 
-                                   x_init, 
-                                   time_grid.to(x_init.device), 
-                                   dt=dt, 
-                                   atol=atol, 
-                                   rtol=rtol)
-        sol = sol.view(time_grid.shape[0], batch_size, *self._input_shape)
+            self._model_inputs = model_inputs
+            sol = torchsde.sdeint(self, x_init.flatten(start_dim=1), time_grid.to(x_init.device),dt=dt, atol=atol, rtol=rtol)
+        sol = sol.view(time_grid.shape[0], *self._input_shape)
         if return_intermediates:
             return sol
         else:
             return sol[-1]
-
-
